@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gamelang IDE - Парсер и Runtime</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            color: #333;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        h3 {
+            color: #4a5568;
+            margin: 15px 0 10px 0;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 300px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            resize: vertical;
+            background: #f7fafc;
+            transition: all 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        button.secondary {
+            background: #48bb78;
+        }
+        
+        button.danger {
+            background: #f56565;
+        }
+        
+        button.info {
+            background: #4299e1;
+        }
+        
+        .result {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e2e8f0;
+        }
+        
+        pre {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        
+        .success {
+            color: #48bb78;
+            padding: 10px;
+            background: #c6f6d5;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .error {
+            color: #c53030;
+            padding: 10px;
+            background: #fed7d7;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #c53030;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .stat-box {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+        
+        .examples {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .example-btn {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 10px;
+            font-size: 14px;
+        }
+        
+        .example-btn:hover {
+            background: #cbd5e0;
+        }
+        
+        .code-highlight {
+            color: #2d3748;
+            font-weight: bold;
+        }
+        
+        .keyword { color: #805ad5; }
+        .string { color: #dd6b20; }
+        .number { color: #0e9aa7; }
+        .comment { color: #718096; font-style: italic; }
+        
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(to right, transparent, #667eea, transparent);
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Gamelang IDE - Парсер и Runtime</h1>
+    
+    <div class="container">
+        <!-- ЛЕВАЯ ПАНЕЛЬ: РЕДАКТОР И ПАРСЕР -->
+        <div class="panel">
+            <h2>✏️ Редактор кода</h2>
+            <textarea id="codeInput" spellcheck="false"># Простой тест Gamelang
+# Все команды на английском, подсказки на русском
+
+# 1. Создаем спрайт
+sprite player "hero.png"
+
+# 2. Устанавливаем свойства
+player.x = 100
+player.y = 200
+player.speed = 5.5
+
+# 3. Переменные
+score = 0
+player_name = "Герой"
+
+# 4. Функция
+function move_right():
+    player.x += player.speed
+    print("Движение вправо!")
+
+# 5. Вызов функции
+move_right()
+
+# 6. Вывод информации
+print("Спрайт создан!")
+print("Имя: " + player_name)
+print("Позиция: " + player.x + ", " + player.y)
+print("Счет: " + score)</textarea>
+            
+            <div class="buttons">
+                <button onclick="runParser()">
+                    <span>🔍</span> Тест парсера
+                </button>
+                <button class="secondary" onclick="runRuntime()">
+                    <span>🚀</span> Запустить Runtime
+                </button>
+                <button class="info" onclick="loadExample('simple')">
+                    <span>🧪</span> Простой тест
+                </button>
+                <button class="danger" onclick="clearAll()">
+                    <span>🗑️</span> Очистить все
+                </button>
+            </div>
+            
+            <h3>Примеры кода:</h3>
+            <div class="examples">
+                <button class="example-btn" onclick="loadExample('simple')">Минимальный</button>
+                <button class="example-btn" onclick="loadExample('function')">С функцией</button>
+                <button class="example-btn" onclick="loadExample('game')">Игровой</button>
+            </div>
+        </div>
+        
+        <!-- ПРАВАЯ ПАНЕЛЬ: РЕЗУЛЬТАТЫ ПАРСЕРА -->
+        <div class="panel">
+            <h2>📊 Результаты парсера</h2>
+            
+            <div id="parserResult">
+                <div class="success">
+                    ✅ Готов к тестированию! Нажмите "Тест парсера"
+                </div>
+            </div>
+            
+            <div class="stats" id="parserStats">
+                <div class="stat-box">
+                    <div class="stat-value" id="statLines">0</div>
+                    <div class="stat-label">строк кода</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statTime">0</div>
+                    <div class="stat-label">мс</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statSprites">0</div>
+                    <div class="stat-label">спрайтов</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statFunctions">0</div>
+                    <div class="stat-label">функций</div>
+                </div>
+            </div>
+            
+            <h3>AST структура:</h3>
+            <div class="result">
+                <pre id="astOutput">Здесь будет дерево разбора (AST)...</pre>
+            </div>
+        </div>
+    </div>
+    
+    <!-- РАЗДЕЛИТЕЛЬ -->
+    <div class="section-divider"></div>
+    
+    <!-- НИЖНЯЯ ПАНЕЛЬ: RUNTIME -->
+    <div class="container">
+        <div class="panel" style="grid-column: span 2;">
+            <h2>🎮 Gamelang Runtime (Исполнитель)</h2>
+            
+            <div class="buttons">
+                <button onclick="runRuntime()" style="background: #38a169;">
+                    <span>🚀</span> Запустить Runtime
+                </button>
+                <button onclick="stopRuntime()" style="background: #e53e3e;">
+                    <span>⏹️</span> Остановить
+                </button>
+                <button onclick="inspectRuntime()" style="background: #3182ce;">
+                    <span>🔍</span> Показать состояние
+                </button>
+                <button onclick="clearRuntimeOutput()" style="background: #a0aec0;">
+                    <span>🧹</span> Очистить вывод
+                </button>
+            </div>
+            
+            <div class="result" id="runtimeOutput" style="min-height: 200px;">
+                <pre>Здесь будет вывод выполнения программы...</pre>
+            </div>
+            
+            <div class="stats" id="runtimeStats">
+                <div class="stat-box">
+                    <div class="stat-value" id="rtSprites">0</div>
+                    <div class="stat-label">спрайтов</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="rtVariables">0</div>
+                    <div class="stat-label">переменных</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="rtFrames">0</div>
+                    <div class="stat-label">кадров</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="rtStatus">⏸️</div>
+                    <div class="stat-label">статус</div>
+                </div>
+            </div>
+            
+            <h3>Консоль выполнения:</h3>
+            <div class="result" style="min-height: 150px; max-height: 300px;">
+                <pre id="runtimeConsole">[Консоль будет здесь]</pre>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ПОДКЛЮЧАЕМ ПАРСЕР -->
+    <script src="src/parser/Parser.js"></script>
+    
+    <!-- ПОДКЛЮЧАЕМ RUNTIME -->
+    <script src="src/runtime/GameContext.js"></script>
+    <script src="src/runtime/Runtime.js"></script>
+    
+    <script>
+        // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
+        let runtimeInstance = null;
+        let consoleOutput = [];
+        
+        // ==================== ПРИМЕРЫ КОДА ====================
+        const examples = {
+            simple: `# Минимальный пример
+sprite hero "character.png"
+hero.x = 100
+hero.y = 200
+
+print("Спрайт создан!")
+print("Позиция: " + hero.x + ", " + hero.y)`,
+
+            function: `# Пример с функцией
+sprite player "hero.png"
+player.x = 100
+player.speed = 5
+
+function move():
+    player.x += player.speed
+    print("Движение! X = " + player.x)
+
+print("Начало программы")
+move()
+move()
+print("Конец программы")`,
+
+            game: `# Простой игровой пример
+sprite ship "spaceship.png"
+sprite enemy "monster.png"
+
+ship.x = 100
+ship.y = 300
+ship.speed = 3
+ship.health = 100
+
+enemy.x = 500
+enemy.y = 300
+enemy.speed = 1
+enemy.damage = 10
+
+score = 0
+lives = 3
+
+function fire():
+    print("Выстрел!")
+    score += 10
+
+function hit():
+    ship.health -= enemy.damage
+    print("Попадание! Здоровье: " + ship.health)
+    
+    if ship.health <= 0:
+        print("Корабль уничтожен!")
+        lives -= 1
+
+print("Игра началась!")
+print("Управление: корабль в позиции " + ship.x + ", " + ship.y)
+print("Враг в позиции " + enemy.x + ", " + enemy.y)`
+        };
+        
+        // ==================== ФУНКЦИИ ПАРСЕРА ====================
+        
+        function runParser() {
+            const code = document.getElementById('codeInput').value;
+            const parser = new GamelangParser();
+            
+            try {
+                const startTime = performance.now();
+                const ast = parser.parse(code);
+                const endTime = performance.now();
+                const parseTime = (endTime - startTime).toFixed(2);
+                
+                // Обновляем статистику
+                updateParserStats(code, parseTime, ast);
+                
+                // Показываем успех
+                document.getElementById('parserResult').innerHTML = `
+                    <div class="success">
+                        ✅ Парсер отработал успешно! Время: ${parseTime} мс
+                    </div>
+                `;
+                
+                // Показываем AST
+                displayAST(ast);
+                
+                // Логируем в консоль
+                console.log("🔍 Результат парсинга:", ast);
+                
+            } catch (error) {
+                document.getElementById('parserResult').innerHTML = `
+                    <div class="error">
+                        ❌ Ошибка парсера: ${error.message}
+                        ${error.line ? `<br>Строка: ${error.line + 1}` : ''}
+                    </div>
+                `;
+                console.error("❌ Ошибка парсера:", error);
+            }
+        }
+        
+        function updateParserStats(code, parseTime, ast) {
+            const lines = code.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
+            const spriteCount = ast.body.filter(stmt => stmt.type === 'SpriteDeclaration').length;
+            const functionCount = ast.body.filter(stmt => stmt.type === 'FunctionDeclaration').length;
+            
+            document.getElementById('statLines').textContent = lines;
+            document.getElementById('statTime').textContent = parseTime;
+            document.getElementById('statSprites').textContent = spriteCount;
+            document.getElementById('statFunctions').textContent = functionCount;
+        }
+        
+        function displayAST(ast) {
+            const astString = JSON.stringify(ast, null, 2);
+            
+            // Простая подсветка
+            let highlighted = astString
+                .replace(/("type": ")([^"]+)(")/g, '$1<span class="keyword">$2</span>$3')
+                .replace(/("value": )(\d+\.?\d*)/g, '$1<span class="number">$2</span>')
+                .replace(/("value": ")([^"]+)(")/g, '$1<span class="string">$2</span>$3')
+                .replace(/("name": ")([^"]+)(")/g, '$1<span class="code-highlight">$2</span>$3');
+            
+            document.getElementById('astOutput').innerHTML = highlighted;
+        }
+        
+        // ==================== ФУНКЦИИ RUNTIME ====================
+        
+        function runRuntime() {
+            const code = document.getElementById('codeInput').value;
+            const parser = new GamelangParser();
+            
+            // Очищаем предыдущий вывод
+            consoleOutput = [];
+            updateRuntimeConsole();
+            
+            try {
+                // Парсим код
+                const ast = parser.parse(code);
+                console.log("📦 AST для выполнения:", ast);
+                
+                // Останавливаем предыдущий runtime
+                if (runtimeInstance) {
+                    runtimeInstance.stop();
+                }
+                
+                // Создаем и запускаем новый runtime
+                runtimeInstance = new GamelangRuntime();
+                
+                // Перехватываем console.log для вывода в нашу консоль
+                const originalLog = console.log;
+                console.log = function(...args) {
+                    originalLog.apply(console, args);
+                    const message = args.map(arg => 
+                        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                    ).join(' ');
+                    consoleOutput.push(message);
+                    updateRuntimeConsole();
+                };
+                
+                // Выполняем программу
+                const result = runtimeInstance.execute(ast);
+                
+                // Восстанавливаем console.log
+                console.log = originalLog;
+                
+                // Показываем результат
+                document.getElementById('runtimeOutput').innerHTML = `
+                    <div class="success">
+                        ✅ RUNTIME ЗАПУЩЕН УСПЕШНО!
+                    </div>
+                    <pre>Вывод программы:
+${result.getOutput() || "(нет вывода)"}</pre>
+                `;
+                
+                // Обновляем статистику
+                updateRuntimeStats();
+                
+                // Автоматически показываем состояние
+                setTimeout(inspectRuntime, 500);
+                
+            } catch (error) {
+                document.getElementById('runtimeOutput').innerHTML = `
+                    <div class="error">
+                        ❌ ОШИБКА ВЫПОЛНЕНИЯ
+                    </div>
+                    <pre>${error.message}
+
+${error.stack || ''}</pre>
+                `;
+                console.error("❌ Ошибка Runtime:", error);
+            }
+        }
+        
+        function stopRuntime() {
+            if (runtimeInstance) {
+                runtimeInstance.stop();
+                document.getElementById('rtStatus').textContent = '⏸️';
+                document.getElementById('runtimeOutput').innerHTML += `
+                    <pre>⏹️ Runtime остановлен</pre>
+                `;
+                consoleOutput.push("[System] Runtime остановлен");
+                updateRuntimeConsole();
+            }
+        }
+        
+        function inspectRuntime() {
+            if (runtimeInstance) {
+                const state = runtimeInstance.getState();
+                
+                let output = "🔍 СОСТОЯНИЕ RUNTIME:\n\n";
+                output += "📊 ПЕРЕМЕННЫЕ:\n";
+                
+                // Форматируем переменные
+                Object.entries(state.variables).forEach(([key, value]) => {
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                        output += `  ${key}: [объект]\n`;
+                    } else {
+                        output += `  ${key}: ${JSON.stringify(value)}\n`;
+                    }
+                });
+                
+                output += "\n🎨 СПРАЙТЫ:\n";
+                Object.entries(state.sprites).forEach(([name, sprite]) => {
+                    output += `  ${name}: x=${sprite.x}, y=${sprite.y}, image="${sprite.image}"\n`;
+                });
+                
+                output += `\n📈 СТАТИСТИКА:\n`;
+                output += `  Функций: ${state.functions.length}\n`;
+                output += `  Кадров: ${state.frameCount}\n`;
+                output += `  Статус: ${state.isRunning ? '▶️ работает' : '⏸️ остановлен'}\n`;
+                
+                document.getElementById('runtimeOutput').innerHTML = `
+                    <pre>${output}</pre>
+                `;
+                
+                updateRuntimeStats();
+            }
+        }
+        
+        function updateRuntimeStats() {
+            if (runtimeInstance) {
+                const state = runtimeInstance.getState();
+                
+                document.getElementById('rtSprites').textContent = 
+                    Object.keys(state.sprites).length;
+                document.getElementById('rtVariables').textContent = 
+                    Object.keys(state.variables).length;
+                document.getElementById('rtFrames').textContent = state.frameCount;
+                document.getElementById('rtStatus').textContent = 
+                    state.isRunning ? '▶️' : '⏸️';
+            }
+        }
+        
+        function updateRuntimeConsole() {
+            const consoleElement = document.getElementById('runtimeConsole');
+            if (consoleOutput.length > 0) {
+                consoleElement.textContent = consoleOutput.join('\n');
+                consoleElement.scrollTop = consoleElement.scrollHeight;
+            } else {
+                consoleElement.textContent = '[Консоль будет здесь]';
+            }
+        }
+        
+        function clearRuntimeOutput() {
+            consoleOutput = [];
+            updateRuntimeConsole();
+            document.getElementById('runtimeOutput').innerHTML = `
+                <pre>Вывод очищен</pre>
+            `;
+        }
+        
+        // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+        
+        function loadExample(name) {
+            if (examples[name]) {
+                document.getElementById('codeInput').value = examples[name];
+                
+                // Автозапуск парсера
+                setTimeout(runParser, 100);
+                
+                // Автозапуск runtime для простого примера
+                if (name === 'simple') {
+                    setTimeout(runRuntime, 300);
+                }
+            }
+        }
+        
+        function clearAll() {
+            if (confirm('Очистить весь редактор и результаты?')) {
+                document.getElementById('codeInput').value = '';
+                document.getElementById('parserResult').innerHTML = `
+                    <div class="success">Готов к тестированию</div>
+                `;
+                document.getElementById('astOutput').textContent = 'Здесь будет дерево разбора (AST)...';
+                document.getElementById('runtimeOutput').innerHTML = `
+                    <pre>Здесь будет вывод выполнения программы...</pre>
+                `;
+                consoleOutput = [];
+                updateRuntimeConsole();
+                
+                // Сброс статистики
+                document.getElementById('statLines').textContent = '0';
+                document.getElementById('statTime').textContent = '0';
+                document.getElementById('statSprites').textContent = '0';
+                document.getElementById('statFunctions').textContent = '0';
+                
+                document.getElementById('rtSprites').textContent = '0';
+                document.getElementById('rtVariables').textContent = '0';
+                document.getElementById('rtFrames').textContent = '0';
+                document.getElementById('rtStatus').textContent = '⏸️';
+                
+                if (runtimeInstance) {
+                    runtimeInstance.stop();
+                    runtimeInstance = null;
+                }
+            }
+        }
+        
+        // ==================== ИНИЦИАЛИЗАЦИЯ ====================
+        
+        window.addEventListener('load', function() {
+            console.log('🎮 Gamelang IDE загружен!');
+            console.log('Парсер и Runtime готовы к тестированию.');
+            
+            // Автозапуск парсера при загрузке
+            setTimeout(runParser, 1000);
+        });
+    </script>
+</body>
+</html>

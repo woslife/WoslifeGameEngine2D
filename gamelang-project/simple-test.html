@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🧪 Простой тест Gamelang Runtime</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест Gamelang Runtime</h1>
+    
+    <button onclick="runTest()">▶️ Запустить тест</button>
+    <div id="output"></div>
+    
+    <!-- Подключаем файлы -->
+    <script src="src/parser/Parser.js"></script>
+    <script src="src/runtime/GameContext.js"></script>
+    <script src="src/runtime/Runtime.js"></script>
+    
+    <script>
+        function runTest() {
+            const code = `
+sprite hero "character.png"
+hero.x = 100
+hero.y = 200
+hero.speed = 5
+
+print("Спрайт создан!")
+print("Позиция: " + hero.x + ", " + hero.y)
+print("Скорость: " + hero.speed)
+
+# Простая функция
+function move():
+    hero.x += hero.speed
+    print("Движение! Новая X: " + hero.x)
+
+move()
+move()
+`;
+            
+            const parser = new GamelangParser();
+            const runtime = new GamelangRuntime();
+            
+            try {
+                const ast = parser.parse(code);
+                console.log("AST:", ast);
+                
+                const result = runtime.execute(ast);
+                
+                document.getElementById('output').innerHTML = `
+                    <h3>✅ Тест выполнен успешно!</h3>
+                    <pre>Вывод программы:
+${result.getOutput()}</pre>
+                    <pre>Состояние:
+${JSON.stringify(result.getState(), null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                document.getElementById('output').innerHTML = `
+                    <h3>❌ Ошибка!</h3>
+                    <pre>${error.message}</pre>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        }
+        
+        // Автозапуск
+        setTimeout(runTest, 1000);
+    </script>
+</body>
+</html>
